@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 const _kBrandBlue = Color(0xFF0369A1);
@@ -16,6 +17,7 @@ class ForgotPasswordScreen extends StatefulWidget {
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -23,9 +25,30 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     super.dispose();
   }
 
-  void _handleContinue() {
-    // TODO: friend triggers Firebase password reset email first
-    Navigator.of(context).pushReplacementNamed('/password-reset-sent');
+  Future<void> _handleContinue() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      _showError('Please enter your email address.');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed('/password-reset-sent');
+    } on FirebaseAuthException catch (e) {
+      _showError(e.message ?? 'Could not send reset email. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   @override
@@ -65,7 +88,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 20),
-              _PrimaryButton(label: 'Continue', onPressed: _handleContinue),
+              _PrimaryButton(
+                label: _isSubmitting ? 'Sending...' : 'Continue',
+                onPressed: _isSubmitting ? null : _handleContinue,
+              ),
             ],
           ),
         ),
@@ -126,7 +152,7 @@ class _PrimaryButton extends StatelessWidget {
   const _PrimaryButton({required this.label, required this.onPressed});
 
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {

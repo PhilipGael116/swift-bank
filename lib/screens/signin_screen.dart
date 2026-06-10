@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 const _kBrandBlue = Color(0xFF0369A1);
@@ -18,6 +19,7 @@ class _SignInScreenState extends State<SignInScreen> {
   final _passwordController = TextEditingController();
   bool _rememberMe = true;
   bool _obscurePassword = true;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -26,8 +28,33 @@ class _SignInScreenState extends State<SignInScreen> {
     super.dispose();
   }
 
-  void _handleSignIn() {
-    Navigator.of(context).pushReplacementNamed('/home');
+  Future<void> _handleSignIn() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showError('Please enter your email and password.');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      await FirebaseAuth.instance
+          .signInWithEmailAndPassword(email: email, password: password);
+
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed('/home');
+    } on FirebaseAuthException catch (e) {
+      _showError(e.message ?? 'Sign in failed. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   void _handleCreateAccount() {
@@ -99,11 +126,14 @@ class _SignInScreenState extends State<SignInScreen> {
                 onChanged: (v) => setState(() => _rememberMe = v),
               ),
               const SizedBox(height: 24),
-              _PrimaryButton(label: 'Sign In', onPressed: _handleSignIn),
+              _PrimaryButton(
+                label: _isSubmitting ? 'Signing In...' : 'Sign In',
+                onPressed: _isSubmitting ? null : _handleSignIn,
+              ),
               const SizedBox(height: 12),
               _OutlineButton(
                 label: 'Create New Account',
-                onPressed: _handleCreateAccount,
+                onPressed: _isSubmitting ? null : _handleCreateAccount,
               ),
               const SizedBox(height: 28),
               Center(
@@ -255,7 +285,7 @@ class _PrimaryButton extends StatelessWidget {
   const _PrimaryButton({required this.label, required this.onPressed});
 
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -279,7 +309,7 @@ class _OutlineButton extends StatelessWidget {
   const _OutlineButton({required this.label, required this.onPressed});
 
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {

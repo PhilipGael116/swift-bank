@@ -1,6 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'firebase_options.dart';
 import 'screens/account_success_screen.dart';
 import 'screens/add_money_screen.dart';
 import 'screens/forgot_password_screen.dart';
@@ -17,7 +20,9 @@ import 'screens/topup_card_screen.dart';
 import 'screens/transfer_complete_screen.dart';
 import 'screens/transfer_success_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const BankingApp());
 }
 
@@ -37,7 +42,7 @@ class BankingApp extends StatelessWidget {
       ),
       initialRoute: '/',
       routes: <String, WidgetBuilder>{
-        '/': (_) => const SplashScreen(nextRoute: '/onboarding'),
+        '/': (_) => const _AuthGate(),
         '/onboarding': (_) => const OnboardingScreen(nextRoute: '/signin'),
         '/signin': (_) => const SignInScreen(),
         '/signup': (_) => const SignUpScreen(),
@@ -52,6 +57,23 @@ class BankingApp extends StatelessWidget {
         '/topup-card-confirm': (_) => const TopUpCardConfirmScreen(),
         '/transfer-success': (_) => const TransferSuccessScreen(),
         '/transfer-complete': (_) => const TransferCompleteScreen(),
+      },
+    );
+  }
+}
+
+/// Decides where to send the user once the splash animation finishes:
+/// straight to `/home` if already signed in, otherwise the onboarding flow.
+class _AuthGate extends StatelessWidget {
+  const _AuthGate();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        final nextRoute = snapshot.data != null ? '/home' : '/onboarding';
+        return SplashScreen(nextRoute: nextRoute);
       },
     );
   }

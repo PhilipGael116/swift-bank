@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 const _kBrandBlue = Color(0xFF0369A1);
@@ -14,19 +15,49 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  void _handleSignUp() {
-    Navigator.of(context).pushReplacementNamed('/home');
+  Future<void> _handleSignUp() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      _showError('Please fill in your name, email and password.');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      final credential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: email, password: password);
+      await credential.user?.updateDisplayName(name);
+
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed('/home');
+    } on FirebaseAuthException catch (e) {
+      _showError(e.message ?? 'Sign up failed. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   void _handleGoToSignIn() {
@@ -42,7 +73,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   void _handleForgotPassword() {
-    // TODO: navigate to forgot-password flow
+    Navigator.of(context).pushNamed('/forgot-password');
   }
 
   @override
@@ -68,6 +99,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ),
               ),
               const SizedBox(height: 48),
+              const _FieldLabel('Full Name'),
+              const SizedBox(height: 8),
+              _TextInput(
+                controller: _nameController,
+                hintText: 'Enter your full name...',
+                prefixIcon: Icons.person_outline,
+                keyboardType: TextInputType.name,
+              ),
+              const SizedBox(height: 20),
               const _FieldLabel('Email Address'),
               const SizedBox(height: 8),
               _TextInput(
@@ -97,11 +137,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              _PrimaryButton(label: 'Sign Up', onPressed: _handleSignUp),
+              _PrimaryButton(
+                label: _isSubmitting ? 'Signing Up...' : 'Sign Up',
+                onPressed: _isSubmitting ? null : _handleSignUp,
+              ),
               const SizedBox(height: 12),
               _OutlineButton(
                 label: 'Sign In',
-                onPressed: _handleGoToSignIn,
+                onPressed: _isSubmitting ? null : _handleGoToSignIn,
               ),
               const SizedBox(height: 28),
               Center(
@@ -213,7 +256,7 @@ class _PrimaryButton extends StatelessWidget {
   const _PrimaryButton({required this.label, required this.onPressed});
 
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -237,7 +280,7 @@ class _OutlineButton extends StatelessWidget {
   const _OutlineButton({required this.label, required this.onPressed});
 
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {

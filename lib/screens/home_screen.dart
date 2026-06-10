@@ -1,8 +1,12 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import 'cards_screen.dart';
+import 'invest_screen.dart';
 import 'quiz_screen.dart';
+import 'send_money_screen.dart';
 
 const _kBrandBlue = Color(0xFF0369A1);
 const _kInkPrimary = Color(0xFF111827);
@@ -11,9 +15,7 @@ const _kFieldBorder = Color(0xFFE5E7EB);
 const _kChipBg = Color(0xFFF3F4F6);
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, this.userName = 'Victor Jimoh'});
-
-  final String userName;
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -22,6 +24,25 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentTab = 0;
   bool _balanceHidden = false;
+
+  String get _userName {
+    final user = FirebaseAuth.instance.currentUser;
+    final displayName = user?.displayName;
+    if (displayName != null && displayName.trim().isNotEmpty) {
+      return displayName;
+    }
+    final email = user?.email;
+    if (email != null && email.contains('@')) {
+      return email.split('@').first;
+    }
+    return 'there';
+  }
+
+  Future<void> _handleLogout() async {
+    await FirebaseAuth.instance.signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,9 +54,12 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Scaffold(
         backgroundColor: _kBrandBlue,
-        body: _currentTab == 4
-            ? const QuizScreen()
-            : Container(
+        body: switch (_currentTab) {
+          1 => const SendMoneyScreen(),
+          2 => const InvestScreen(),
+          3 => const CardsScreen(),
+          4 => const QuizScreen(),
+          _ => Container(
                 color: _kBrandBlue,
                 child: Stack(
                   children: [
@@ -59,10 +83,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         children: [
                           _Header(
-                            userName: widget.userName,
+                            userName: _userName,
                             balanceHidden: _balanceHidden,
                             onToggleBalance: () =>
                                 setState(() => _balanceHidden = !_balanceHidden),
+                            onLogout: _handleLogout,
                           ),
                           Expanded(
                             child: Container(
@@ -118,6 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
+        },
         bottomNavigationBar: _BottomNav(
           current: _currentTab,
           onTap: (i) => setState(() => _currentTab = i),
@@ -132,11 +158,13 @@ class _Header extends StatelessWidget {
     required this.userName,
     required this.balanceHidden,
     required this.onToggleBalance,
+    required this.onLogout,
   });
 
   final String userName;
   final bool balanceHidden;
   final VoidCallback onToggleBalance;
+  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -202,7 +230,7 @@ class _Header extends StatelessWidget {
                   color: Colors.white,
                   size: 23,
                 ),
-                onPressed: () {},
+                onPressed: onLogout,
                 padding: EdgeInsets.zero,
                 visualDensity: VisualDensity.compact,
                 constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
